@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<style type="text/css">
+		.sprite {
+			display: none;
+		}
+		canvas {
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			margin: 10px;
+		}
+		canvas#debug {
+			opacity: 0.5;
+		}
+	</style>
+	<script type="text/javascript" src="math.js"></script>
+</head>
+<body>
+	<div id="container">
+		<canvas id="render" width="512" height="512"></canvas>
+		<canvas id="debug" width="512" height="512"></canvas>
+	</div>
+
+	<img src="map.png" class="sprite">
+	<img src="player.png" class="sprite">
+	<img src="wall.png" class="sprite">
+	<img src="transparent.png" class="sprite">
+
+	<script id="vertexShader" type="x-shader/x-vertex">
+		precision mediump float;
+
+		attribute vec2 aPosition;
+		attribute vec2 aTexCoord;
+
+		uniform mat3 transformMatrix;
+		uniform mat3 viewMatrix;
+		uniform mat3 spriteMatrix;
+
+		varying vec2 vTexCoord;
+
+		void main(void) {
+			vec3 transformed = transformMatrix * viewMatrix * spriteMatrix * vec3((aPosition), 1.0);
+			gl_Position = vec4(transformed.xy, 0.0, 1.0);
+			// gl_Position = matrix * vec4(aPosition, 0.0, 1.0);
+
+			vTexCoord = aTexCoord;
+		}
+	</script>
+
+	<script id="fragmentShader" type="x-shader/x-fragment">
+		precision mediump float;
+
+		uniform sampler2D sprite;
+		uniform vec2 playerPosition;
+
+		uniform mat3 viewMatrix;
+	
+		varying vec2 vTexCoord;
+
+		// const vec2 size = vec2(512.0);
+
+		struct LightProps {
+			float radius;
+			float blur;
+			float intensity;
+		};
+
+		struct Light {
+			vec2 position;
+			float radius;
+			float blur;
+			float intensity;
+		};
+
+		Light toLight(vec2 position, LightProps props) {
+			return Light(position, props.radius, props.blur, props.intensity);
+		}
+
+		vec2 translate(vec2 pos) {
+			vec3 translated = viewMatrix * vec3(pos, 1.0);
+			return translated.xy;
+		}
+
+		float light(vec2 pos, Light light) {
+			float dist = length(pos - light.position);
+
+			float circle = 1.0 - smoothstep(light.radius, light.radius + light.blur, dist);
+
+			// circle = (circle + 0.4) / 1.4;
+
+			return circle;
+		}
+
+		const vec2 roomLightPos = vec2(130, 390);
+		const LightProps roomLightProps = LightProps(80.0, 50.0, 1.0);
+
+		const LightProps playerLightProps = LightProps(100.0, 50.0, 1.0);
+
+		const float ambient = 0.3;
+
+		void main(void) {
+			vec4 sample = texture2D(sprite, vTexCoord);
+
+			vec2 pos = gl_FragCoord.xy;
+
+			Light playerLight = toLight(translate(playerPosition), playerLightProps);
+
+			Light roomLight = toLight(translate(roomLightPos), roomLightProps);
+
+			Light lights[2];
+			 // = Light[2](playerLight, roomLight);
+			lights[0] = playerLight;
+			lights[1] = roomLight;
+
+			float lightEffect = ambient;
+
+			for(int i = 0; i < 2; i++) {
+				lightEffect += light(pos, lights[i]);
+			}
+
+
+			// lightEffect = min(lightEffect, 1.0);
+
+			// float sin = (sin(gl_FragCoord.x * 10.0) + sin(gl_FragCoord.y * 10.0)) / 2.0;
+
+			// float effect = 0.75 + sin / 4.0;
+
+			gl_FragColor = vec4(sample.rgb * lightEffect, sample.a);
+			// gl_FragColor = sample;
+			// gl_FragColor = sample * effect;
+			// gl_FragColor = vec4(sample.rgb * effect, sample.a);
+		}
+	</script>
+
+	<script type="text/javascript" src="extend.js"></script>
+
+	<script type="text/javascript">
+		var canvas = document.querySelector('canvas#render');
+		extend(window, {
+			canvas: canvas,
+			gl: canvas.getContext('webgl'),
+			width: canvas.width,
+			height: canvas.height
+		});
+	</script>
+
+	<script type="text/javascript" src="shader-program.js"></script>
+	<script type="text/javascript" src="vec2.js"></script>
+	<script type="text/javascript" src="math2.js"></script>
+	<script type="text/javascript" src="sprite.js"></script>
+	<script type="text/javascript" src="sprite-camera.js"></script>
+	
+	<script type="text/javascript" src="keyboard.js"></script>
+	<script type="text/javascript" src="bounding-box.js"></script>
+	<script type="text/javascript" src="debug.js"></script>
+
+	<script type="text/javascript" src="level.js"></script>
+	<script type="text/javascript" src="entity.js"></script>
+	<script type="text/javascript" src="wall.js"></script>
+	<script type="text/javascript" src="player.js"></script>
+
+	<script type="text/javascript" src="main.js"></script>
+</body>
+</html>
